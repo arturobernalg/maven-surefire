@@ -44,7 +44,7 @@ public final class FileReporterUtils {
      * @param fileName the file name, including its extension
      * @return a file name safe to pass to {@link java.io.File#File(java.io.File, String)}
      */
-    public static String makeFileName(String fileName) {
+    static String makeFileName(String fileName) {
         return truncateFileName(stripIllegalFilenameChars(fileName));
     }
 
@@ -67,8 +67,8 @@ public final class FileReporterUtils {
      * of the untruncated name.
      *
      * @param fileName the file name, including its extension
-     * @return {@code fileName} unchanged if it already fits, otherwise a truncated name of
-     *         the same extension
+     * @return {@code fileName} unchanged if it already fits, otherwise a truncated name
+     *         with the same extension
      */
     static String truncateFileName(String fileName) {
         if (fileName.length() <= MAX_FILE_NAME_LENGTH) {
