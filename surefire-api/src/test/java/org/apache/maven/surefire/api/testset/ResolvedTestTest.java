@@ -100,6 +100,16 @@ public class ResolvedTestTest {
     }
 
     @Test
+    public void testSlashAuthoredPackageWildcardDoesNotGetLegacyClassFallback() {
+        // A pattern the caller already wrote with a slash, e.g. "dev/aspectj/*", is unambiguous: there is
+        // no dot-notation to disambiguate, so it must not also match the legacy single-class-file
+        // interpretation that only applies to a dotted wildcard like "dev.aspectj.*".
+        ResolvedTest test = new ResolvedTest(CLASS, "dev/aspectj/*", false);
+        assertTrue(test.matchAsInclusive("dev/aspectj/MyTest.class", null));
+        assertFalse(test.matchAsInclusive("dev/aspectj.class", null));
+    }
+
+    @Test
     public void testClassWildcardWithLowercaseNameStillMatchesTheClassItself() {
         // "org.example.lowerTest.*" looks like a package wildcard by the naming convention used to
         // resolve the dot-notation ambiguity, but a pre-existing class named "lowerTest" must still

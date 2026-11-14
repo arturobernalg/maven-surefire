@@ -59,6 +59,8 @@ public final class ResolvedTest {
 
     private final String classPattern;
 
+    private final boolean ambiguousPackageWildcard;
+
     private final String methodPattern;
 
     private final boolean isRegexTestClassPattern;
@@ -95,6 +97,7 @@ public final class ResolvedTest {
         }
 
         this.classPattern = reformatClassPattern(classPattern, isRegex);
+        this.ambiguousPackageWildcard = isAmbiguousPackageWildcard(classPattern, isRegex);
         this.methodPattern = methodPattern;
         isRegexTestClassPattern = isRegex;
         isRegexTestMethodPattern = isRegex;
@@ -116,6 +119,7 @@ public final class ResolvedTest {
             pattern = wrapRegex(pattern);
         }
         classPattern = isClass ? reformatClassPattern(pattern, isRegex) : null;
+        ambiguousPackageWildcard = isClass && isAmbiguousPackageWildcard(pattern, isRegex);
         methodPattern = !isClass ? pattern : null;
         isRegexTestClassPattern = isRegex && isClass;
         isRegexTestMethodPattern = isRegex && !isClass;
@@ -339,6 +343,29 @@ public final class ResolvedTest {
         return !lastSegment.isEmpty() && Character.isLowerCase(lastSegment.charAt(0));
     }
 
+    /**
+     * Tells whether {@code s} is the kind of dotted, slash-free, trailing-{@code .*} pattern that
+     * {@link #fromFullyQualifiedClass(String)} resolves as a package name by naming convention (see
+     * {@link #isPackageName(String)}. {@link ClassMatcher} only adds the legacy single-class-file fallback
+     * match for patterns matching this description; a pattern the caller already wrote with a {@code /}
+     * (e.g. {@code some/pkg/*}) is unambiguous and must not also match that legacy, dot-based interpretation.
+     *
+     * @param s       the raw class pattern as given to the constructor, before any reformatting
+     * @param isRegex {@code true} if {@code s} is a regex, which is never ambiguous in this sense
+     * @return {@code true} if {@code s} is an ambiguous dotted package wildcard
+     */
+    private static boolean isAmbiguousPackageWildcard(String s, boolean isRegex) {
+        if (isRegex) {
+            return false;
+        }
+        String path = convertToPath(s);
+        if (path == null || path.contains("/") || !path.endsWith(WILDCARD_FILENAME_POSTFIX)) {
+            return false;
+        }
+        String clsName = path.substring(0, path.length() - WILDCARD_FILENAME_POSTFIX.length());
+        return isPackageName(clsName);
+    }
+
     private final class ClassMatcher {
         private volatile MatchPatterns cache;
 
@@ -369,11 +396,12 @@ public final class ResolvedTest {
                 classPattern = classPattern.replace('/', separatorChar);
             }
 
-            String packagePostfix = WILDCARD_PACKAGE_POSTFIX.replace('/', separatorChar);
-            if (classPattern.endsWith(packagePostfix)) {
+            if (ResolvedTest.this.ambiguousPackageWildcard) {
                 // The source pattern was ambiguous between a package and a class name (see
                 // isPackageName); also match the legacy single-class-file interpretation, so a class
-                // whose name happens to start with a lowercase letter still matches itself.
+                // whose name happens to start with a lowercase letter still matches itself. A pattern
+                // the caller already wrote with a slash is unambiguous and never reaches this branch.
+                String packagePostfix = WILDCARD_PACKAGE_POSTFIX.replace('/', separatorChar);
                 String legacyClassPattern = classPattern.substring(0, classPattern.length() - packagePostfix.length())
                         + WILDCARD_FILENAME_POSTFIX;
                 return of(classPattern, legacyClassPattern).matches(testClassFile, true);
